@@ -539,20 +539,22 @@ get_input <- function(age0 = 40,
                                             SABA_LABA=log((1-0.20)^input$medication$medication_adherence),
                                             LAMA=log((1-0.22)^input$medication$medication_adherence),
                                             LAMA_SABA=log((1-0.22)^input$medication$medication_adherence),
-                                            LAMA_LABA=log((1-0.23)^input$medication$medication_adherence),
-                                            LAMA_LABA_SABA=log((1-0.23)^input$medication$medication_adherence),
+                                            LAMA_LABA=log((1-0.26)^input$medication$medication_adherence),
+                                            LAMA_LABA_SABA=log((1-0.26)^input$medication$medication_adherence),
                                             ICS=log((1-0.19)^input$medication$medication_adherence),
                                             ICS_SABA=log((1-0.19)^input$medication$medication_adherence),
                                             ICS_LABA=log((1-0.25)^input$medication$medication_adherence),
                                             ICS_LABA_SABA=log((1-0.25)^input$medication$medication_adherence),
                                             ICS_LAMA=log((1-0.25)^input$medication$medication_adherence),
                                             ICS_LAMA_SABA=log((1-0.25)^input$medication$medication_adherence),
-                                            ICS_LAMA_LABA=log((1-0.34)^input$medication$medication_adherence),
-                                            ICS_LAMA_LABA_SABA=log((1-0.34)^input$medication$medication_adherence)))
+                                            ICS_LAMA_LABA=log((1-0.44)^input$medication$medication_adherence),
+                                            ICS_LAMA_LABA_SABA=log((1-0.44)^input$medication$medication_adherence)))
   input_ref$medication$medication_ln_hr_exac <- "ICS/LABA: Annual Rate Ratio of Comibation Therapy (Salmeterol and Fluticasone Propionate) vs. Placebo from TORCH (doi: 10.1056/NEJMoa063070),
                                                  ICS: Annual Rate Ratio between Fluticasone vs. Placebo from TRISTAN Trial (doi:10.1016/S0140-6736(03)12459-2),
                                                  LABA: Annual Rate Ratio between Salmeterol vs. Placebo from TRISTAN Trial (doi:10.1016/S0140-6736(03)12459-2),
-                                                 LAMA-Zhou et al. 2017, LAMA/LABA-UPLIFT 2008, ICS/LAMA/LABA-KRONOS 2018"
+                                                 LAMA-Zhou et al. 2017,
+                                                 LAMA/LABA: Rate ratio between dual bronchodilation (indacaterol & glycopyrronium) vs placebo from SHINE (doi:10.1183/09031936.00200212),
+                                                 ICS/LAMA/LABA: Rate ratio between triple therapy vs LAMA/LABA from IMPACT (doi:10.1056/NEJMoa1713901)"
 
   # cost of medications
   input_help$medication$medication_costs <- "Costs of treatment"
@@ -578,6 +580,20 @@ get_input <- function(age0 = 40,
   input$medication$ln_h_start_betas_by_class <- mx
   input$medication$ln_h_stop_betas_by_class <- mx
   input$medication$ln_rr_exac_by_class <- rep(log(1), length(medication_classes))  #TODO: update this to represent different medication effect
+
+
+
+  ## Adverse events;
+
+  input_help$adverse$rate_pneumonia <- "Annual rate of pneumonia events for COPD patients"
+  input$adverse$rate_pneumonia <- c(LAMA_LABA=0.0612,ICS_LAMA_LABA=0.0612*1.53)
+  input_ref$adverse$rate_pneumonia <- "LAMA/LABA: Pneumonia events per 1,000 patient years = 61.2 from IMPACT trial (doi:10.1056/NEJMoa1713901),
+                                              ICS/LAMA/LABA: rate ratio for triple vs dual therapy from meta-analysis (doi:http://dx.doi.org/10.1136/bmj.k4388)"
+
+
+
+
+
 
 
   ### comorbidity mi - not implemented
@@ -647,6 +663,12 @@ get_input <- function(age0 = 40,
     gold4=c(mild=-0.0488, moderate=-0.0488, severe=-0.0655, verysevere=-0.0655)
   );
   input_help$utility$exac_dutil="Incremental change in utility during exacerbations by severity level"
+
+
+  input_help$utility$pneumonia_dutil <- "QALY reduction for 6 week pneumonia event assumed to result in hospitalisation with nmo complications."
+  input$utility$pneumonia_dutil <- 0.02
+  input_ref$utility$pneumonia_dutil <- "(doi:10.1001/archinte.1996.00440130115012)"
+
 
 
   input$manual$MORT_COEFF<-1

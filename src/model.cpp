@@ -29,6 +29,7 @@ Layout:
 #define OUTPUT_EX_MORTALITY 128
 #define OUTPUT_EX_MEDICATION 256
 #define OUTPUT_EX_POPULATION 512
+#define OUTPUT_EX_ADVERSE 1024
 
 #define OUTPUT_EX 65535
 
@@ -722,6 +723,8 @@ struct input
     double bg_util_by_stage[5];
     double exac_dutil[4][4];
 
+    double pneumonia_dutil;
+
     double mi_dutil;
     double mi_post_dutil;
     double stroke_dutil;
@@ -764,6 +767,11 @@ struct input
     double ln_h_hf_betas_by_sex[12][2];
     double p_hf_death;
   } comorbidity;
+
+  struct
+  {
+    double rate_pneumonia[2];
+  } adverse;
 
   struct
   {
@@ -900,6 +908,10 @@ List Cget_inputs()
       Rcpp::Named("ln_h_hf_betas_by_sex")=AS_MATRIX_DOUBLE(input.comorbidity.ln_h_hf_betas_by_sex)
     ),
 
+    Rcpp::Named("adverse")=Rcpp::List::create(
+      Rcpp::Named("rate_pneumonia")=AS_VECTOR_DOUBLE(input.adverse.rate_pneumonia)
+    ),
+
     Rcpp::Named("cost")=Rcpp::List::create(
       Rcpp::Named("bg_cost_by_stage")=AS_VECTOR_DOUBLE(input.cost.bg_cost_by_stage),
       Rcpp::Named("exac_dcost")=AS_VECTOR_DOUBLE(input.cost.exac_dcost),
@@ -912,7 +924,8 @@ List Cget_inputs()
     ),
     Rcpp::Named("utility")=Rcpp::List::create(
       Rcpp::Named("bg_util_by_stage")=AS_VECTOR_DOUBLE(input.utility.bg_util_by_stage),
-      Rcpp::Named("exac_dutil")=AS_MATRIX_DOUBLE(input.utility.exac_dutil)
+      Rcpp::Named("exac_dutil")=AS_MATRIX_DOUBLE(input.utility.exac_dutil),
+      Rcpp::Named("pneumonia_dutil")=input.utility.pneumonia_dutil
     )
   ,
   Rcpp::Named("medication")=Rcpp::List::create(
@@ -1057,6 +1070,7 @@ int Cset_input_var(std::string name, NumericVector value)
 
   if(name=="utility$bg_util_by_stage") READ_R_VECTOR(value,input.utility.bg_util_by_stage);
   if(name=="utility$exac_dutil") READ_R_MATRIX(value,input.utility.exac_dutil);
+  if(name=="utility$pneumonia_dutil") {input.utility.pneumonia_dutil=value[0]; return(0);}
 
   if(name=="comorbidity$logit_p_mi_betas_by_sex") READ_R_MATRIX(value,input.comorbidity.logit_p_mi_betas_by_sex);
   if(name=="comorbidity$ln_h_mi_betas_by_sex") READ_R_MATRIX(value,input.comorbidity.ln_h_mi_betas_by_sex);
@@ -1067,7 +1081,9 @@ int Cset_input_var(std::string name, NumericVector value)
   if(name=="comorbidity$logit_p_hf_betas_by_sex") READ_R_MATRIX(value,input.comorbidity.logit_p_hf_betas_by_sex);
   if(name=="comorbidity$ln_h_hf_betas_by_sex") READ_R_MATRIX(value,input.comorbidity.ln_h_hf_betas_by_sex);
 
+  if(name=="adverse$rate_pneumonia") READ_R_VECTOR(value,input.adverse.rate_pneumonia);
   //Define your project-specific inputs here;
+
 
   return(ERR_INCORRECT_INPUT_VAR);
 }
@@ -1202,6 +1218,8 @@ struct agent
   double re_dyspnea;
   double re_wheeze;
 
+  int pneumonia;
+
   //Define your project-specific variables here;
   // int norm_refill;
   // int exp_refill;
@@ -1322,6 +1340,8 @@ List get_agent(agent *ag)
   out["smoking_at_diagnosis"] = (*ag).smoking_at_diagnosis;
   out["smoking_cessation"] = (*ag).smoking_cessation;
   out["case_detection"] = (*ag).case_detection;
+
+  out["pneumonia"] = (*ag).pneumonia;
 
   out["cumul_cost"] = (*ag).cumul_cost;
   out["cumul_cost_prev_yr"] = (*ag).cumul_cost_prev_yr;
@@ -1686,6 +1706,12 @@ struct output_ex
   int n_smoking_cessation_by_ctime[1000];
 #endif
 
+
+#if (OUTPUT_EX & OUTPUT_EX_ADVERSE) > 0
+  int n_pneumonia_by_ctime[1000];
+  //int n_criteria[1000][5];
+#endif
+
 } output_ex;
 #endif
 
@@ -1799,6 +1825,11 @@ List Cget_output_ex()
       out["n_exac_by_medication_class"]=AS_MATRIX_DOUBLE(output_ex.n_exac_by_medication_class);
 #endif
 
+#if (OUTPUT_EX & OUTPUT_EX_ADVERSE)>0
+      out["n_pneumonia_by_ctime"]=AS_VECTOR_DOUBLE_SIZE(output_ex.n_pneumonia_by_ctime,input.global_parameters.time_horizon);
+      //out["n_criteria"]=AS_MATRIX_INT_SIZE(output_ex.n_criteria,input.global_parameters.time_horizon);
+#endif
+
       return(out);
 }
 
@@ -1887,6 +1918,11 @@ void update_output_ex(agent *ag)
         output_ex.n_hf_by_ctime_sex[time][(*ag).sex]++;
       }
 #endif
+
+#if (OUTPUT_EX & OUTPUT_EX_ADVERSE)>0
+  output_ex.n_pneumonia_by_ctime[time]+=(*ag).pneumonia;
+#endif
+
   }
 #endif
 }
@@ -2305,6 +2341,36 @@ double update_prevalent_diagnosis(agent *ag)
 
 
 
+
+/// Adverse events (currently just pneumonia)
+
+double update_adverse(agent *ag)
+{
+
+  if((*ag).diagnosis==1){
+
+    (*ag).pneumonia=0;
+
+    // if on triple therapy then pneumonia=rpois(X) else pneumonia=rpois(Y)
+    if((*ag).medication_status==MED_CLASS_ICS)
+    {
+      (*ag).pneumonia=rand_Poisson(input.adverse.rate_pneumonia[1]);
+    } else {
+      (*ag).pneumonia=rand_Poisson(input.adverse.rate_pneumonia[0]);
+    }
+
+    // apply disutility
+    (*ag).cumul_qaly+=(input.utility.pneumonia_dutil/pow(1+input.global_parameters.discount_qaly,(*ag).time_at_creation+(*ag).local_time-1));
+
+  }
+
+  return(0);
+}
+
+
+
+
+
 ////
 
 
@@ -2349,6 +2415,8 @@ double _bvn[2]; //being used for joint estimation in multiple locations;
 (*ag).time_at_creation=calendar_time;
 (*ag).sex=rand_unif()<input.agent.p_female;
 (*ag).fev1_tail = sqrt(0.1845) * rand_norm() + 0.827;
+
+(*ag).pneumonia = 0;
 
 
 // (*ag).norm_refill = 0;
@@ -3360,6 +3428,12 @@ void event_exacerbation_process(agent *ag)
           (*ag).medication_status= max(MED_CLASS_LAMA | MED_CLASS_LABA, (*ag).medication_status);
           medication_LPT(ag);
         }
+
+
+          //output_ex.n_criteria[(int)floor((*ag).time_at_creation+(*ag).local_time)][(*ag).gold]+=1;
+
+
+
   }
 
   if((*ag).diagnosis==1 && (*ag).dyspnea==1 && (((*ag).exac_status>2) |
@@ -3371,6 +3445,8 @@ void event_exacerbation_process(agent *ag)
           (*ag).medication_status=MED_CLASS_ICS | MED_CLASS_LAMA | MED_CLASS_LABA;
           medication_LPT(ag);
         }
+
+
   }
 
   #if (OUTPUT_EX & OUTPUT_EX_MEDICATION) > 0
@@ -3774,6 +3850,8 @@ agent *event_fixed_process(agent *ag)
   update_symptoms(ag); //updating in the annual event
   update_gpvisits(ag);
   update_diagnosis(ag);
+
+  update_adverse(ag);
 
   smoking_LPT(ag);
 
