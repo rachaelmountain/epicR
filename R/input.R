@@ -572,6 +572,13 @@ get_input <- function(age0 = 40,
                                         ICS_LAMA_SABA=0, ICS_LAMA_LABA=0.0367, ICS_LAMA_LABA_SABA=0)
   input_ref$medication$medication_utility <- "Lambe et al. Thorax 2019"
 
+
+  # earlier initiation of triple therapy
+  input$medication$triple_therapy_early_initiation <- 0
+  input$medication$triple_therapy_early_initiation_criteria <- c(GOLD_min=1,dyspnea=0)
+
+
+
   # medication event - disabled
   template = c(int = 0, sex = 0, age = 0, med_class = rep(0, length(medication_classes)))
   mx <- NULL

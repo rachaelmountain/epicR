@@ -748,6 +748,8 @@ struct input
     double medication_costs[16];
     double medication_utility[16];
     double medication_adherence;
+    double triple_therapy_early_initiation;
+    double triple_therapy_early_initiation_criteria[2];
     double ln_h_start_betas_by_class[N_MED_CLASS][3+N_MED_CLASS];
     double ln_h_stop_betas_by_class[N_MED_CLASS][3+N_MED_CLASS];
     double ln_rr_exac_by_class[N_MED_CLASS];
@@ -933,6 +935,8 @@ List Cget_inputs()
     Rcpp::Named("medication_costs")=AS_VECTOR_DOUBLE(input.medication.medication_costs),
     Rcpp::Named("medication_utility")=AS_VECTOR_DOUBLE(input.medication.medication_utility),
     Rcpp::Named("medication_adherence")=input.medication.medication_adherence,
+    Rcpp::Named("triple_therapy_early_initiation")=input.medication.triple_therapy_early_initiation,
+    Rcpp::Named("triple_therapy_early_initiation_criteria")=AS_VECTOR_DOUBLE(input.medication.triple_therapy_early_initiation_criteria),
     Rcpp::Named("ln_h_start_betas_by_class")=AS_MATRIX_DOUBLE(input.medication.ln_h_start_betas_by_class),
     Rcpp::Named("ln_h_stop_betas_by_class")=AS_MATRIX_DOUBLE(input.medication.ln_h_stop_betas_by_class),
     Rcpp::Named("ln_rr_exac_by_class")=AS_VECTOR_DOUBLE(input.medication.ln_rr_exac_by_class)
@@ -1060,10 +1064,11 @@ int Cset_input_var(std::string name, NumericVector value)
   if(name=="medication$medication_costs") READ_R_VECTOR(value,input.medication.medication_costs);
   if(name=="medication$medication_utility") READ_R_VECTOR(value,input.medication.medication_utility);
   if(name=="medication$medication_adherence") {input.medication.medication_adherence=value[0]; return(0);};
+  if(name=="medication$triple_therapy_early_initiation") {input.medication.triple_therapy_early_initiation=value[0]; return(0);};
+  if(name=="medication$triple_therapy_early_initiation_criteria") READ_R_VECTOR(value,input.medication.triple_therapy_early_initiation_criteria);
   if(name=="medication$ln_h_start_betas_by_class") READ_R_MATRIX(value,input.medication.ln_h_start_betas_by_class);
   if(name=="medication$ln_h_stop_betas_by_class") READ_R_MATRIX(value,input.medication.ln_h_stop_betas_by_class);
   if(name=="medication$ln_rr_exac_by_class") READ_R_VECTOR(value,input.medication.ln_rr_exac_by_class);
-
 
   if(name=="cost$exac_dcost") READ_R_VECTOR(value,input.cost.exac_dcost);
   if(name=="cost$doctor_visit_by_type") READ_R_VECTOR(value,input.cost.doctor_visit_by_type);
@@ -1219,6 +1224,7 @@ struct agent
   double re_wheeze;
 
   int pneumonia;
+  int eligible;
 
   //Define your project-specific variables here;
   // int norm_refill;
@@ -1328,6 +1334,8 @@ List get_agent(agent *ag)
 
   out["exac_history_n_moderate"]  = (*ag).exac_history_n_moderate;
   out["exac_history_n_severe_plus"] = (*ag).exac_history_n_severe_plus;
+
+  out["eligible"] = (*ag).eligible;
 
   out["re_cough"] = (*ag).re_cough;
   out["re_phlegm"] = (*ag).re_phlegm;
@@ -2360,7 +2368,7 @@ double update_adverse(agent *ag)
     }
 
     // apply disutility
-    (*ag).cumul_qaly+=(input.utility.pneumonia_dutil/pow(1+input.global_parameters.discount_qaly,(*ag).time_at_creation+(*ag).local_time-1));
+    (*ag).cumul_qaly+=(input.utility.pneumonia_dutil*(*ag).pneumonia/pow(1+input.global_parameters.discount_qaly,(*ag).time_at_creation+(*ag).local_time-1));
 
   }
 
@@ -2417,6 +2425,7 @@ double _bvn[2]; //being used for joint estimation in multiple locations;
 (*ag).fev1_tail = sqrt(0.1845) * rand_norm() + 0.827;
 
 (*ag).pneumonia = 0;
+(*ag).eligible=0;
 
 
 // (*ag).norm_refill = 0;
@@ -3029,8 +3038,8 @@ DataFrame Cget_all_events() //Returns all events from all agents;
 // [[Rcpp::export]]
 NumericMatrix Cget_all_events_matrix()
 {
-  NumericMatrix outm(event_stack_pointer,33);
-  CharacterVector eventMatrixColNames(33);
+  NumericMatrix outm(event_stack_pointer,38);
+  CharacterVector eventMatrixColNames(38);
 
 // eventMatrixColNames = CharacterVector::create("id", "local_time","sex", "time_at_creation", "age_at_creation", "pack_years","gold","event","FEV1","FEV1_slope", "FEV1_slope_t","pred_FEV1","smoking_status", "localtime_at_COPD", "age_at_COPD", "weight_at_COPD", "height","followup_after_COPD", "FEV1_baseline");
 // 'create' helper function is limited to 20 enteries
@@ -3068,6 +3077,11 @@ NumericMatrix Cget_all_events_matrix()
   eventMatrixColNames(30) = "time_at_diagnosis";
   eventMatrixColNames(31) = "exac_history_n_moderate";
   eventMatrixColNames(32) = "exac_history_n_severe_plus";
+  eventMatrixColNames(33) = "eligible";
+  eventMatrixColNames(34) = "exac_history_severity_first";
+  eventMatrixColNames(35) = "exac_history_severity_second";
+  eventMatrixColNames(36) = "exac_history_time_first";
+  eventMatrixColNames(37) = "exac_history_time_second";
 
 
   colnames(outm) = eventMatrixColNames;
@@ -3107,6 +3121,11 @@ NumericMatrix Cget_all_events_matrix()
     outm(i,30)=(*ag).time_at_diagnosis;
     outm(i,31)=(*ag).exac_history_n_moderate;
     outm(i,32)=(*ag).exac_history_n_severe_plus;
+    outm(i,33)=(*ag).eligible;
+    outm(i,34)=(*ag).exac_history_severity_first;
+    outm(i,35)=(*ag).exac_history_severity_second;
+    outm(i,36)=(*ag).exac_history_time_first;
+    outm(i,37)=(*ag).exac_history_time_second;
 
   }
 
@@ -3370,10 +3389,15 @@ void event_exacerbation_process(agent *ag)
   if ((*ag).exac_status>2) (*ag).exac_history_n_severe_plus++;
 
 
-  (*ag).exac_history_time_second=(*ag).exac_history_time_first;
-  (*ag).exac_history_severity_second=(*ag).exac_history_severity_first;
-  (*ag).exac_history_time_first=(*ag).local_time;
-  (*ag).exac_history_severity_first=(*ag).exac_status;
+
+  if((*ag).exac_status==2)
+   {
+    (*ag).exac_history_time_second=(*ag).exac_history_time_first;
+    (*ag).exac_history_severity_second=(*ag).exac_history_severity_first;
+    (*ag).exac_history_time_first=(*ag).local_time;
+    (*ag).exac_history_severity_first=(*ag).exac_status;
+   }
+
 
 
   if ((*ag).diagnosis==0)
@@ -3419,35 +3443,56 @@ void event_exacerbation_process(agent *ag)
         }
   }
 
-  if((*ag).diagnosis==1 && (*ag).dyspnea==0 && (((*ag).exac_status>2) |
-     ((*ag).exac_history_severity_first==2 && ((*ag).local_time - (*ag).exac_history_time_first) <1 &&
-     (*ag).exac_history_severity_second==2 && ((*ag).local_time - (*ag).exac_history_time_second) <1)))
-  {
-        if (rand_unif() < input.medication.medication_adherence)
-        {
-          (*ag).medication_status= max(MED_CLASS_LAMA | MED_CLASS_LABA, (*ag).medication_status);
-          medication_LPT(ag);
-        }
+  if((*ag).diagnosis==1 &&
+     (*ag).gold>=input.medication.triple_therapy_early_initiation_criteria[0] &&
+     (*ag).dyspnea>=input.medication.triple_therapy_early_initiation_criteria[1] &&
+     (((*ag).exac_status>2) |
+      ((*ag).exac_history_severity_first==2 && ((*ag).local_time - (*ag).exac_history_time_first) <1 &&
+      (*ag).exac_history_severity_second==2 && ((*ag).local_time - (*ag).exac_history_time_second) <1)))
+
+    if(input.medication.triple_therapy_early_initiation==1){
+            //if (rand_unif() < input.medication.medication_adherence)
+            {
+              (*ag).eligible=1;
+              (*ag).medication_status= MED_CLASS_ICS | MED_CLASS_LAMA | MED_CLASS_LABA;
+              medication_LPT(ag);
+            }
+    }else{
+            //if (rand_unif() < input.medication.medication_adherence)
+            {
+              (*ag).eligible=1;
+              (*ag).medication_status= max(MED_CLASS_LAMA | MED_CLASS_LABA, (*ag).medication_status);
+              medication_LPT(ag);
+            }
+    }
 
 
-          //output_ex.n_criteria[(int)floor((*ag).time_at_creation+(*ag).local_time)][(*ag).gold]+=1;
 
-
-
-  }
-
-  if((*ag).diagnosis==1 && (*ag).dyspnea==1 && (((*ag).exac_status>2) |
-     ((*ag).exac_history_severity_first==2 && ((*ag).local_time - (*ag).exac_history_time_first) <1 &&
-     (*ag).exac_history_severity_second==2 && ((*ag).local_time - (*ag).exac_history_time_second) <1)))
-  {
-      if (rand_unif() < input.medication.medication_adherence)
-        {
-          (*ag).medication_status=MED_CLASS_ICS | MED_CLASS_LAMA | MED_CLASS_LABA;
-          medication_LPT(ag);
-        }
-
-
-  }
+  // if((*ag).diagnosis==1 && (*ag).dyspnea==0 && (((*ag).exac_status>2) |
+  //    ((*ag).exac_history_severity_first==2 && ((*ag).local_time - (*ag).exac_history_time_first) <1 &&
+  //    (*ag).exac_history_severity_second==2 && ((*ag).local_time - (*ag).exac_history_time_second) <1)))
+  // {
+  //       if (rand_unif() < input.medication.medication_adherence)
+  //       {
+  //         (*ag).medication_status= max(MED_CLASS_LAMA | MED_CLASS_LABA, (*ag).medication_status);
+  //         medication_LPT(ag);
+  //       }
+  //         //output_ex.n_criteria[(int)floor((*ag).time_at_creation+(*ag).local_time)][(*ag).gold]+=1;
+  //
+  // }
+  //
+  // if((*ag).diagnosis==1 && (*ag).dyspnea==1 && (((*ag).exac_status>2) |
+  //    ((*ag).exac_history_severity_first==2 && ((*ag).local_time - (*ag).exac_history_time_first) <1 &&
+  //    (*ag).exac_history_severity_second==2 && ((*ag).local_time - (*ag).exac_history_time_second) <1)))
+  // {
+  //     if (rand_unif() < input.medication.medication_adherence)
+  //       {
+  //         (*ag).medication_status=MED_CLASS_ICS | MED_CLASS_LAMA | MED_CLASS_LABA;
+  //         medication_LPT(ag);
+  //       }
+  //
+  //
+  // }
 
   #if (OUTPUT_EX & OUTPUT_EX_MEDICATION) > 0
     if((*ag).medication_status>0)
