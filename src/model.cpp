@@ -1567,6 +1567,8 @@ struct output
   double total_qaly;  //END because agent records
   double total_diagnosed_time;
 
+  int n_cohort;
+
 
 } output;
 
@@ -1586,6 +1588,7 @@ void reset_output()
   output.total_cost=0;
   output.total_qaly=0;
   output.total_diagnosed_time=0;
+  output.n_cohort=0;
 }
 
 //' Main outputs of the current run.
@@ -1605,7 +1608,8 @@ List Cget_output()
     Rcpp::Named("total_doctor_visit")=AS_VECTOR_INT(output.total_doctor_visit),
     Rcpp::Named("total_cost")=output.total_cost,
     Rcpp::Named("total_qaly")=output.total_qaly,
-    Rcpp::Named("total_diagnosed_time")=output.total_diagnosed_time
+    Rcpp::Named("total_diagnosed_time")=output.total_diagnosed_time,
+    Rcpp::Named("n_cohort")=output.n_cohort
   //Define your project-specific output here;
   );
 }
@@ -1857,19 +1861,19 @@ void update_output_ex(agent *ag)
   //if(time>=(*ag).time_at_creation)
   {
     int age=floor((*ag).age_at_creation+(*ag).local_time);
-    output_ex.n_alive_by_ctime_age[time][age-1]+=1;   //age-1 -> adjusting for zero based system in C.
-    output_ex.n_alive_by_ctime_sex[time][(*ag).sex]+=1;
-    output_ex.n_alive_by_age_sex[age-1][(*ag).sex]+=1;
+    output_ex.n_alive_by_ctime_age[time][age-1]+=1*(*ag).eligible;   //age-1 -> adjusting for zero based system in C.
+    output_ex.n_alive_by_ctime_sex[time][(*ag).sex]+=1*(*ag).eligible;
+    output_ex.n_alive_by_age_sex[age-1][(*ag).sex]+=1*(*ag).eligible;
     if((*ag).smoking_status==1)
     {
-      output_ex.n_smoking_status_by_ctime[time][1]+=1;
-      output_ex.n_current_smoker_by_ctime_sex[time][(*ag).sex]+=1;
+      output_ex.n_smoking_status_by_ctime[time][1]+=1*(*ag).eligible;
+      output_ex.n_current_smoker_by_ctime_sex[time][(*ag).sex]+=1*(*ag).eligible;
     }
     else
       if((*ag).pack_years>0)
-        output_ex.n_smoking_status_by_ctime[time][2]+=1;
+        output_ex.n_smoking_status_by_ctime[time][2]+=1*(*ag).eligible;
       else
-        output_ex.n_smoking_status_by_ctime[time][0]+=1;
+        output_ex.n_smoking_status_by_ctime[time][0]+=1*(*ag).eligible;
 
 
       //output_ex.cumul_cost_ctime[time]+=(*ag).annual_cost;
@@ -1877,7 +1881,7 @@ void update_output_ex(agent *ag)
       //output_ex.cumul_qaly_ctime[time]+=(*ag).annual_qaly;
       //output_ex.cumul_qaly_gold_ctime[time][(*ag).gold]+=(*ag).annual_qaly;
 
-        output_ex.sum_fev1_ltime[local_time]+=(*ag).fev1;
+        output_ex.sum_fev1_ltime[local_time]+=(*ag).fev1*(*ag).eligible;
 
       double odds=exp(input.COPD.logit_p_COPD_betas_by_sex[0][(*ag).sex]
                         +input.COPD.logit_p_COPD_betas_by_sex[1][(*ag).sex]*((*ag).age_at_creation+(*ag).local_time)
@@ -1886,35 +1890,35 @@ void update_output_ex(agent *ag)
                         +input.COPD.logit_p_COPD_betas_by_sex[4][(*ag).sex]*(*ag).smoking_status
                         +input.COPD.logit_p_COPD_betas_by_sex[5][(*ag).sex]*(calendar_time+(*ag).local_time)
       );
-      output_ex.sum_p_COPD_by_ctime_sex[time][(*ag).sex]+=odds/(1+odds);
-      output_ex.sum_pack_years_by_ctime_sex[time][(*ag).sex]+=(*ag).pack_years;
-      output_ex.sum_age_by_ctime_sex[time][(*ag).sex]+=(*ag).age_at_creation+(*ag).local_time;
+      output_ex.sum_p_COPD_by_ctime_sex[time][(*ag).sex]+=odds/(1+odds)*(*ag).eligible;
+      output_ex.sum_pack_years_by_ctime_sex[time][(*ag).sex]+=(*ag).pack_years*(*ag).eligible;
+      output_ex.sum_age_by_ctime_sex[time][(*ag).sex]+=(*ag).age_at_creation+(*ag).local_time*(*ag).eligible;
 
 
 #if (OUTPUT_EX & OUTPUT_EX_BIOMETRICS)>0
-      output_ex.sum_weight_by_ctime_sex[time][(*ag).sex]+=(*ag).weight;
+      output_ex.sum_weight_by_ctime_sex[time][(*ag).sex]+=(*ag).weight*(*ag).eligible;
 #endif
 
 #if (OUTPUT_EX & OUTPUT_EX_COPD)>0
-      output_ex.n_COPD_by_ctime_sex[time][(*ag).sex]+=((*ag).gold>0)*1;
-      output_ex.n_COPD_by_ctime_age[time][age-1]+=((*ag).gold>0)*1;
-      output_ex.n_COPD_by_ctime_severity[time][((*ag).gold)]+=1;
-      output_ex.n_COPD_by_age_sex[age-1][(*ag).sex]+=1;
-      if((*ag).gold>0) output_ex.n_Diagnosed_by_ctime_sex[time][(*ag).sex]+=((*ag).diagnosis>0)*1;
-      if((*ag).gold==0) output_ex.n_Overdiagnosed_by_ctime_sex[time][(*ag).sex]+=((*ag).diagnosis>0)*1;
-      if((*ag).gold>0) output_ex.n_Diagnosed_by_ctime_severity[time][(*ag).gold]+=((*ag).diagnosis>0)*1;
-      if((*ag).case_detection>0 && floor((*ag).local_time+(*ag).time_at_creation)>=input.diagnosis.case_detection_start_end_yrs[0] && floor((*ag).local_time+(*ag).time_at_creation)<=input.diagnosis.case_detection_start_end_yrs[1]) output_ex.n_case_detection_by_ctime[time][(*ag).case_detection-1]+=1;
-      if((*ag).local_time>0) output_ex.cumul_time_by_ctime_GOLD[time][((*ag).gold)]+=1;
+      output_ex.n_COPD_by_ctime_sex[time][(*ag).sex]+=((*ag).gold>0)*1*(*ag).eligible;
+      output_ex.n_COPD_by_ctime_age[time][age-1]+=((*ag).gold>0)*1*(*ag).eligible;
+      output_ex.n_COPD_by_ctime_severity[time][((*ag).gold)]+=1*(*ag).eligible;
+      output_ex.n_COPD_by_age_sex[age-1][(*ag).sex]+=1*(*ag).eligible;
+      if((*ag).gold>0) output_ex.n_Diagnosed_by_ctime_sex[time][(*ag).sex]+=((*ag).diagnosis>0)*1*(*ag).eligible;
+      if((*ag).gold==0) output_ex.n_Overdiagnosed_by_ctime_sex[time][(*ag).sex]+=((*ag).diagnosis>0)*1*(*ag).eligible;
+      if((*ag).gold>0) output_ex.n_Diagnosed_by_ctime_severity[time][(*ag).gold]+=((*ag).diagnosis>0)*1*(*ag).eligible;
+      if((*ag).case_detection>0 && floor((*ag).local_time+(*ag).time_at_creation)>=input.diagnosis.case_detection_start_end_yrs[0] && floor((*ag).local_time+(*ag).time_at_creation)<=input.diagnosis.case_detection_start_end_yrs[1]) output_ex.n_case_detection_by_ctime[time][(*ag).case_detection-1]+=1*(*ag).eligible;
+      if((*ag).local_time>0) output_ex.cumul_time_by_ctime_GOLD[time][((*ag).gold)]+=1*(*ag).eligible;
 #endif
 
 #if (OUTPUT_EX & OUTPUT_EX_GPSYMPTOMS)>0
-      output_ex.n_GPvisits_by_ctime_sex[time][(*ag).sex]+=((*ag).gpvisits)*1;
-      output_ex.n_GPvisits_by_ctime_severity[time][(*ag).gold]+=((*ag).gpvisits)*1;
-      if((*ag).gold>0) output_ex.n_GPvisits_by_ctime_diagnosis[time][(*ag).diagnosis]+=((*ag).gpvisits)*1;
-      output_ex.n_cough_by_ctime_severity[time][(*ag).gold]+=((*ag).cough>0)*1;
-      output_ex.n_phlegm_by_ctime_severity[time][(*ag).gold]+=((*ag).phlegm>0)*1;
-      output_ex.n_wheeze_by_ctime_severity[time][(*ag).gold]+=((*ag).wheeze>0)*1;
-      output_ex.n_dyspnea_by_ctime_severity[time][(*ag).gold]+=((*ag).dyspnea>0)*1;
+      output_ex.n_GPvisits_by_ctime_sex[time][(*ag).sex]+=((*ag).gpvisits)*1*(*ag).eligible;
+      output_ex.n_GPvisits_by_ctime_severity[time][(*ag).gold]+=((*ag).gpvisits)*1*(*ag).eligible;
+      if((*ag).gold>0) output_ex.n_GPvisits_by_ctime_diagnosis[time][(*ag).diagnosis]+=((*ag).gpvisits)*1*(*ag).eligible;
+      output_ex.n_cough_by_ctime_severity[time][(*ag).gold]+=((*ag).cough>0)*1*(*ag).eligible;
+      output_ex.n_phlegm_by_ctime_severity[time][(*ag).gold]+=((*ag).phlegm>0)*1*(*ag).eligible;
+      output_ex.n_wheeze_by_ctime_severity[time][(*ag).gold]+=((*ag).wheeze>0)*1*(*ag).eligible;
+      output_ex.n_dyspnea_by_ctime_severity[time][(*ag).gold]+=((*ag).dyspnea>0)*1*(*ag).eligible;
 #endif
 
 #if (OUTPUT_EX & OUTPUT_EX_COMORBIDITY)>0
@@ -1928,7 +1932,7 @@ void update_output_ex(agent *ag)
 #endif
 
 #if (OUTPUT_EX & OUTPUT_EX_ADVERSE)>0
-  output_ex.n_pneumonia_by_ctime[time]+=(*ag).pneumonia;
+  output_ex.n_pneumonia_by_ctime[time]+=(*ag).pneumonia*(*ag).eligible;
 #endif
 
   }
@@ -1987,10 +1991,10 @@ void lung_function_LPT(agent *ag)
 void smoking_LPT(agent *ag)
 {
 #ifdef OUTPUT_EX
-  if((*ag).smoking_status==0) output_ex.cumul_time_by_smoking_status[0]+=(*ag).local_time-(*ag).smoking_status_LPT;
+  if((*ag).smoking_status==0) output_ex.cumul_time_by_smoking_status[0]+=(*ag).local_time-(*ag).smoking_status_LPT*(*ag).eligible;
   else
-    if((*ag).pack_years>0) output_ex.cumul_time_by_smoking_status[2]+=(*ag).local_time-(*ag).smoking_status_LPT;
-    else output_ex.cumul_time_by_smoking_status[1]+=(*ag).local_time-(*ag).smoking_status_LPT;
+    if((*ag).pack_years>0) output_ex.cumul_time_by_smoking_status[2]+=(*ag).local_time-(*ag).smoking_status_LPT*(*ag).eligible;
+    else output_ex.cumul_time_by_smoking_status[1]+=(*ag).local_time-(*ag).smoking_status_LPT*(*ag).eligible;
 #endif
 
     (*ag).pack_years+=(*ag).smoking_status*((*ag).local_time-(*ag).smoking_status_LPT);
@@ -2001,16 +2005,16 @@ void smoking_LPT(agent *ag)
 void exacerbation_LPT(agent *ag)
 {
   if((*ag).exac_status>0)
-    (*ag).cumul_exac_time[(*ag).exac_status-1]+=(*ag).local_time-(*ag).exac_LPT;
+    (*ag).cumul_exac_time[(*ag).exac_status-1]+=(*ag).local_time-(*ag).exac_LPT*(*ag).eligible;
   (*ag).exac_LPT=(*ag).local_time;
 }
 
 
 void payoffs_LPT(agent *ag)
 {
-  (*ag).cumul_cost+=input.cost.bg_cost_by_stage[(*ag).gold]*((*ag).local_time-(*ag).payoffs_LPT)/pow(1+input.global_parameters.discount_cost,(*ag).local_time+calendar_time);
+  (*ag).cumul_cost+=input.cost.bg_cost_by_stage[(*ag).gold]*((*ag).local_time-(*ag).payoffs_LPT)/pow(1+input.global_parameters.discount_cost,(*ag).local_time+calendar_time)*(*ag).eligible;
 
-  (*ag).cumul_qaly+=input.utility.bg_util_by_stage[(*ag).gold]*((*ag).local_time-(*ag).payoffs_LPT)/pow(1+input.global_parameters.discount_qaly,(*ag).local_time+calendar_time);
+  (*ag).cumul_qaly+=input.utility.bg_util_by_stage[(*ag).gold]*((*ag).local_time-(*ag).payoffs_LPT)/pow(1+input.global_parameters.discount_qaly,(*ag).local_time+calendar_time)*(*ag).eligible;
 
   (*ag).payoffs_LPT=(*ag).local_time;
 }
@@ -2023,25 +2027,25 @@ void medication_LPT(agent *ag)
     for(int i=0;i<N_MED_CLASS;i++)
       if(((*ag).medication_status >> i) & 1)
       {
-        output_ex.medication_time_by_class[i]+=((*ag).local_time-(*ag).medication_LPT);
-        output_ex.medication_time_by_ctime_class[time][i]+=((*ag).local_time-(*ag).medication_LPT);
+        output_ex.medication_time_by_class[i]+=((*ag).local_time-(*ag).medication_LPT)*(*ag).eligible;
+        output_ex.medication_time_by_ctime_class[time][i]+=((*ag).local_time-(*ag).medication_LPT)*(*ag).eligible;
       }
   #endif
     // costs
     //(*ag).cumul_cost+=1;
-      (*ag).cumul_cost+=input.medication.medication_costs[(*ag).medication_status]*((*ag).local_time-(*ag).medication_LPT)/pow(1+input.global_parameters.discount_cost,(*ag).local_time+calendar_time);
+      (*ag).cumul_cost+=input.medication.medication_costs[(*ag).medication_status]*((*ag).local_time-(*ag).medication_LPT)/pow(1+input.global_parameters.discount_cost,(*ag).local_time+calendar_time)*(*ag).eligible;
 
     // qaly
       if((*ag).gold>0 && (*ag).diagnosis>0 && (((*ag).cough==1) || ((*ag).phlegm==1) || ((*ag).wheeze==1) || ((*ag).dyspnea==1)))
         {
-          (*ag).cumul_qaly+=input.medication.medication_utility[(*ag).medication_status]*((*ag).local_time-(*ag).medication_LPT)/pow(1+input.global_parameters.discount_qaly,(*ag).local_time+calendar_time);
+          (*ag).cumul_qaly+=input.medication.medication_utility[(*ag).medication_status]*((*ag).local_time-(*ag).medication_LPT)/pow(1+input.global_parameters.discount_qaly,(*ag).local_time+calendar_time)*(*ag).eligible;
         }
 
     // smoking cessation count
 
     if((*ag).smoking_cessation_count==1)
     {
-      output_ex.n_smoking_cessation_by_ctime[time]+=(*ag).smoking_cessation_count;
+      output_ex.n_smoking_cessation_by_ctime[time]+=(*ag).smoking_cessation_count*(*ag).eligible;
       (*ag).smoking_cessation_count=0;
     }
 
@@ -2129,7 +2133,7 @@ double apply_case_detection(agent *ag)
 
     (*ag).case_detection = 1;
     (*ag).last_case_detection = (*ag).local_time;
-    (*ag).cumul_cost+=input.cost.cost_case_detection/pow(1+input.global_parameters.discount_cost,(*ag).local_time+calendar_time);
+    (*ag).cumul_cost+=input.cost.cost_case_detection/pow(1+input.global_parameters.discount_cost,(*ag).local_time+calendar_time)*(*ag).eligible;
 
     } else {
 
@@ -2233,7 +2237,7 @@ double update_prevalent_diagnosis(agent *ag)
     if (rand_unif() < p_diagnosis)
       {
         (*ag).diagnosis = 1;
-        (*ag).cumul_cost+=input.cost.cost_outpatient_diagnosis/pow(1+input.global_parameters.discount_cost,(*ag).local_time+calendar_time);
+        (*ag).cumul_cost+=input.cost.cost_outpatient_diagnosis/pow(1+input.global_parameters.discount_cost,(*ag).local_time+calendar_time)*(*ag).eligible;
         (*ag).time_at_diagnosis=(*ag).local_time;
         (*ag).smoking_at_diagnosis=(*ag).smoking_status;
         if((*ag).case_detection==1)
@@ -2263,7 +2267,7 @@ double update_prevalent_diagnosis(agent *ag)
 
     if ((*ag).diagnosis==1 && (*ag).smoking_status==1 && (rand_unif()<input.smoking.smoking_cessation_adherence))
     {
-      (*ag).cumul_cost+=(input.cost.cost_smoking_cessation/pow(1+input.global_parameters.discount_cost,(*ag).local_time+calendar_time-1));
+      (*ag).cumul_cost+=(input.cost.cost_smoking_cessation/pow(1+input.global_parameters.discount_cost,(*ag).local_time+calendar_time-1))*(*ag).eligible;
       (*ag).smoking_cessation=1;
       (*ag).smoking_cessation_count=1;
     }
@@ -2277,7 +2281,7 @@ double update_prevalent_diagnosis(agent *ag)
         if(rand_unif() < correct_overdiagnosis) {
 
         (*ag).diagnosis = 0;
-        (*ag).cumul_cost+=input.cost.cost_outpatient_diagnosis/pow(1+input.global_parameters.discount_cost,(*ag).local_time+calendar_time);
+        (*ag).cumul_cost+=input.cost.cost_outpatient_diagnosis/pow(1+input.global_parameters.discount_cost,(*ag).local_time+calendar_time)*(*ag).eligible;
         (*ag).medication_status=0;
         medication_LPT(ag);
         (*ag).time_at_diagnosis=0;
@@ -2317,7 +2321,7 @@ double update_prevalent_diagnosis(agent *ag)
 
         if ((*ag).diagnosis == 1 && (*ag).case_detection==1)
         {
-          (*ag).cumul_cost+=(input.cost.cost_outpatient_diagnosis/pow(1+input.global_parameters.discount_cost,(*ag).local_time+calendar_time-1));
+          (*ag).cumul_cost+=(input.cost.cost_outpatient_diagnosis/pow(1+input.global_parameters.discount_cost,(*ag).local_time+calendar_time-1))*(*ag).eligible;
           (*ag).diagnosis = 0;
           (*ag).time_at_diagnosis=0;
           (*ag).smoking_at_diagnosis=0;
@@ -2336,7 +2340,7 @@ double update_prevalent_diagnosis(agent *ag)
 
          if ((*ag).diagnosis==1 && (*ag).smoking_status==1 && (*ag).gold==0 && (rand_unif()<input.smoking.smoking_cessation_adherence))
             {
-              (*ag).cumul_cost+=(input.cost.cost_smoking_cessation/pow(1+input.global_parameters.discount_cost,(*ag).local_time+calendar_time-1));
+              (*ag).cumul_cost+=(input.cost.cost_smoking_cessation/pow(1+input.global_parameters.discount_cost,(*ag).local_time+calendar_time-1))*(*ag).eligible;
               (*ag).smoking_cessation=1;
               (*ag).smoking_cessation_count=1;
             }
@@ -2360,7 +2364,7 @@ double update_adverse(agent *ag)
     (*ag).pneumonia=0;
 
     // if on triple therapy then pneumonia=rpois(X) else pneumonia=rpois(Y)
-    if((*ag).medication_status==MED_CLASS_ICS)
+    if((*ag).medication_status==14)
     {
       (*ag).pneumonia=rand_Poisson(input.adverse.rate_pneumonia[1]);
     } else {
@@ -2368,7 +2372,7 @@ double update_adverse(agent *ag)
     }
 
     // apply disutility
-    (*ag).cumul_qaly+=(input.utility.pneumonia_dutil*(*ag).pneumonia/pow(1+input.global_parameters.discount_qaly,(*ag).time_at_creation+(*ag).local_time-1));
+    (*ag).cumul_qaly+=(input.utility.pneumonia_dutil*(*ag).pneumonia/pow(1+input.global_parameters.discount_qaly,(*ag).time_at_creation+(*ag).local_time-1))*(*ag).eligible;
 
   }
 
@@ -2825,16 +2829,16 @@ agent *event_end_process(agent *ag)
   if((*ag).exac_status>0)
   {
     //NOTE: exacerbation timing is an LPT process and is treated separately.
-    (*ag).cumul_cost+=input.cost.exac_dcost[(*ag).exac_status-1]/pow(1+input.global_parameters.discount_cost,(*ag).local_time+calendar_time);
-    (*ag).cumul_qaly+=input.utility.exac_dutil[(*ag).exac_status-1][(*ag).gold-1]/pow(1+input.global_parameters.discount_qaly,(*ag).local_time+calendar_time);
+    (*ag).cumul_cost+=input.cost.exac_dcost[(*ag).exac_status-1]/pow(1+input.global_parameters.discount_cost,(*ag).local_time+calendar_time)*(*ag).eligible;
+    (*ag).cumul_qaly+=input.utility.exac_dutil[(*ag).exac_status-1][(*ag).gold-1]/pow(1+input.global_parameters.discount_qaly,(*ag).local_time+calendar_time)*(*ag).eligible;
 
   }
 
   ++output.n_agents;
   if(floor((*ag).local_time+(*ag).time_at_creation)>=input.diagnosis.case_detection_start_end_yrs[0] && floor((*ag).time_at_creation)<=input.diagnosis.case_detection_start_end_yrs[1]) ++output_ex.n_agents_CD;
-  output.n_COPD+=((*ag).gold>0)*1;
-  output.cumul_time+=(*ag).local_time;
-  output.n_deaths+=!(*ag).alive;
+  output.n_COPD+=((*ag).gold>0)*1*(*ag).eligible;
+  output.cumul_time+=(*ag).local_time*(*ag).eligible;
+  output.n_deaths+=!(*ag).alive*(*ag).eligible;
 
   lung_function_LPT(ag);
   smoking_LPT(ag);
@@ -2842,11 +2846,11 @@ agent *event_end_process(agent *ag)
   payoffs_LPT(ag);
   medication_LPT(ag);
 
-  output.total_pack_years+=(*ag).pack_years;
-  output.total_exac[0]+=(*ag).cumul_exac[0];
-  output.total_exac[1]+=(*ag).cumul_exac[1];
-  output.total_exac[2]+=(*ag).cumul_exac[2];
-  output.total_exac[3]+=(*ag).cumul_exac[3];
+  output.total_pack_years+=(*ag).pack_years*(*ag).eligible;
+  output.total_exac[0]+=(*ag).cumul_exac[0]*(*ag).eligible;
+  output.total_exac[1]+=(*ag).cumul_exac[1]*(*ag).eligible;
+  output.total_exac[2]+=(*ag).cumul_exac[2]*(*ag).eligible;
+  output.total_exac[3]+=(*ag).cumul_exac[3]*(*ag).eligible;
 
   output.total_exac_time[0]+=(*ag).cumul_exac_time[0];
   output.total_exac_time[1]+=(*ag).cumul_exac_time[1];
@@ -2855,7 +2859,8 @@ agent *event_end_process(agent *ag)
 
   output.total_cost+=(*ag).cumul_cost;
   output.total_qaly+=(*ag).cumul_qaly;
-  if((*ag).diagnosis>0 && (*ag).gold>0) output.total_diagnosed_time+=(*ag).local_time-(*ag).time_at_diagnosis;
+  if((*ag).diagnosis>0 && (*ag).gold>0) output.total_diagnosed_time+=(*ag).local_time-(*ag).time_at_diagnosis*(*ag).eligible;
+  output.n_cohort+=((*ag).eligible>0)*1;
 
   // output_ex.annual_cost_ctime[input.global_parameters.time_horizon-1]+=(*ag).cumul_cost-(*ag).cumul_cost_prev_yr;
 
@@ -2872,8 +2877,8 @@ agent *event_end_process(agent *ag)
 
   int age=floor((*ag).local_time+(*ag).age_at_creation);
   //Rprintf("age at death=%f\n",age);
-  if((*ag).gold==0) output_ex.cumul_non_COPD_time+=(*ag).local_time;
-  if((*ag).alive==false)  output_ex.n_death_by_age_sex[age-1][(*ag).sex]+=1;
+  if((*ag).gold==0) output_ex.cumul_non_COPD_time+=(*ag).local_time*(*ag).eligible;
+  if((*ag).alive==false)  output_ex.n_death_by_age_sex[age-1][(*ag).sex]+=1*(*ag).eligible;
 
   if((*ag).case_detection_eligible==1) output_ex.n_case_detection_eligible+=1;
   if((*ag).diagnosis>0 && (*ag).gold>0 && floor((*ag).time_at_diagnosis)>=input.diagnosis.case_detection_start_end_yrs[0] && floor((*ag).time_at_diagnosis)<=input.diagnosis.case_detection_start_end_yrs[1]) output_ex.n_diagnosed_true_CD+=1;
@@ -2908,7 +2913,7 @@ agent *event_end_process(agent *ag)
   {
     double delta=min(i+1,_age)-max(i,(*ag).age_at_creation);
     if(delta>1e-10) {
-      output_ex.sum_time_by_age_sex[i-1][(*ag).sex]+=delta;
+      output_ex.sum_time_by_age_sex[i-1][(*ag).sex]+=delta*(*ag).eligible;
     }
   }
 
@@ -3298,10 +3303,10 @@ void event_COPD_process(agent *ag)
            (*ag).lung_function_LPT=(*ag).local_time;
 
 #if OUTPUT_EX>1
-           output_ex.cumul_non_COPD_time+=(*ag).local_time;
+           output_ex.cumul_non_COPD_time+=(*ag).local_time*(*ag).eligible;
 #endif
 #if (OUTPUT_EX & OUTPUT_EX_COPD) > 0
-           output_ex.n_inc_COPD_by_ctime_age[(int)floor((*ag).time_at_creation+(*ag).local_time)][(int)(floor((*ag).age_at_creation+(*ag).local_time))]+=1;
+           output_ex.n_inc_COPD_by_ctime_age[(int)floor((*ag).time_at_creation+(*ag).local_time)][(int)(floor((*ag).age_at_creation+(*ag).local_time))]+=1*(*ag).eligible;
 #endif
 }
 
@@ -3427,7 +3432,7 @@ void event_exacerbation_process(agent *ag)
 
   if((*ag).diagnosis==1 && (*ag).exac_status==2 && (*ag).dyspnea==1)
   {
-    if (rand_unif() < input.medication.medication_adherence)
+    //if (rand_unif() < input.medication.medication_adherence)
         {
         (*ag).medication_status= max(MED_CLASS_LAMA, (*ag).medication_status);
         medication_LPT(ag);
@@ -3436,7 +3441,7 @@ void event_exacerbation_process(agent *ag)
 
   if((*ag).diagnosis==1 && (*ag).exac_status==2 && (*ag).dyspnea==0)
   {
-      if (rand_unif() < input.medication.medication_adherence)
+      //if (rand_unif() < input.medication.medication_adherence)
         {
         (*ag).medication_status= max(MED_CLASS_SABA, (*ag).medication_status);
         medication_LPT(ag);
@@ -3453,14 +3458,28 @@ void event_exacerbation_process(agent *ag)
     if(input.medication.triple_therapy_early_initiation==1){
             //if (rand_unif() < input.medication.medication_adherence)
             {
-              (*ag).eligible=1;
+              if((*ag).time_at_creation+(*ag).local_time < 1){
+                (*ag).eligible=1;
+              }
               (*ag).medication_status= MED_CLASS_ICS | MED_CLASS_LAMA | MED_CLASS_LABA;
               medication_LPT(ag);
             }
     }else{
             //if (rand_unif() < input.medication.medication_adherence)
             {
-              (*ag).eligible=1;
+              // if already on dual therapy, move to triple
+              if((*ag).eligible==1 && rand_unif() < input.medication.medication_adherence){
+                (*ag).medication_status= MED_CLASS_ICS | MED_CLASS_LAMA | MED_CLASS_LABA;
+                medication_LPT(ag);
+              }
+              if((*ag).time_at_creation+(*ag).local_time < 1){
+                (*ag).eligible=1;
+                // reset exacerbation counters so moved to triple next time meet criteria
+                (*ag).exac_history_time_second=0;
+                (*ag).exac_history_severity_second=0;
+                (*ag).exac_history_time_first=0;
+                (*ag).exac_history_severity_first=0;
+              }
               (*ag).medication_status= max(MED_CLASS_LAMA | MED_CLASS_LABA, (*ag).medication_status);
               medication_LPT(ag);
             }
@@ -3468,31 +3487,6 @@ void event_exacerbation_process(agent *ag)
 
 
 
-  // if((*ag).diagnosis==1 && (*ag).dyspnea==0 && (((*ag).exac_status>2) |
-  //    ((*ag).exac_history_severity_first==2 && ((*ag).local_time - (*ag).exac_history_time_first) <1 &&
-  //    (*ag).exac_history_severity_second==2 && ((*ag).local_time - (*ag).exac_history_time_second) <1)))
-  // {
-  //       if (rand_unif() < input.medication.medication_adherence)
-  //       {
-  //         (*ag).medication_status= max(MED_CLASS_LAMA | MED_CLASS_LABA, (*ag).medication_status);
-  //         medication_LPT(ag);
-  //       }
-  //         //output_ex.n_criteria[(int)floor((*ag).time_at_creation+(*ag).local_time)][(*ag).gold]+=1;
-  //
-  // }
-  //
-  // if((*ag).diagnosis==1 && (*ag).dyspnea==1 && (((*ag).exac_status>2) |
-  //    ((*ag).exac_history_severity_first==2 && ((*ag).local_time - (*ag).exac_history_time_first) <1 &&
-  //    (*ag).exac_history_severity_second==2 && ((*ag).local_time - (*ag).exac_history_time_second) <1)))
-  // {
-  //     if (rand_unif() < input.medication.medication_adherence)
-  //       {
-  //         (*ag).medication_status=MED_CLASS_ICS | MED_CLASS_LAMA | MED_CLASS_LABA;
-  //         medication_LPT(ag);
-  //       }
-  //
-  //
-  // }
 
   #if (OUTPUT_EX & OUTPUT_EX_MEDICATION) > 0
     if((*ag).medication_status>0)
@@ -3500,21 +3494,21 @@ void event_exacerbation_process(agent *ag)
       for(int i=0;i<N_MED_CLASS;i++)
         if(((*ag).medication_status >> i) & 1)
         {
-          output_ex.n_exac_by_medication_class[i][(*ag).exac_status-1]+=1;
+          output_ex.n_exac_by_medication_class[i][(*ag).exac_status-1]+=1*(*ag).eligible;
         }
     }
   #endif
 
   #if (OUTPUT_EX & OUTPUT_EX_EXACERBATION)>0
-    output_ex.n_exac_by_ctime_age[(int)floor((*ag).time_at_creation+(*ag).local_time)][(int)(floor((*ag).age_at_creation+(*ag).local_time))]+=1;
-    output_ex.n_exac_by_ctime_severity[(int)floor((*ag).time_at_creation+(*ag).local_time)][(*ag).exac_status-1]+=1;
-    output_ex.n_exac_by_gold_severity[(*ag).gold-1][(*ag).exac_status-1]+=1;
-    if ((*ag).diagnosis==1) output_ex.n_exac_by_gold_severity_diagnosed[(*ag).gold-1][(*ag).exac_status-1]+=1;
-    output_ex.n_exac_by_ctime_severity_female[(int)floor((*ag).time_at_creation+(*ag).local_time)][(*ag).exac_status-1]+=(*ag).sex;
-    output_ex.n_exac_by_ctime_GOLD[(int)floor((*ag).time_at_creation+(*ag).local_time)][(*ag).gold-1]+=1;
-    if ((*ag).exac_status > 2) output_ex.n_severep_exac_by_ctime_age[(int)floor((*ag).time_at_creation+(*ag).local_time)][(int)(floor((*ag).age_at_creation+(*ag).local_time))]+=1;
-    if ((*ag).diagnosis==0 && (*ag).gold>0) output_ex.n_exac_by_ctime_severity_undiagnosed[(int)floor((*ag).time_at_creation+(*ag).local_time)][(*ag).exac_status-1]+=1;
-    if ((*ag).diagnosis==1 && (*ag).gold>0) output_ex.n_exac_by_ctime_severity_diagnosed[(int)floor((*ag).time_at_creation+(*ag).local_time)][(*ag).exac_status-1]+=1;
+    output_ex.n_exac_by_ctime_age[(int)floor((*ag).time_at_creation+(*ag).local_time)][(int)(floor((*ag).age_at_creation+(*ag).local_time))]+=1*(*ag).eligible;
+    output_ex.n_exac_by_ctime_severity[(int)floor((*ag).time_at_creation+(*ag).local_time)][(*ag).exac_status-1]+=1*(*ag).eligible;
+    output_ex.n_exac_by_gold_severity[(*ag).gold-1][(*ag).exac_status-1]+=1*(*ag).eligible;
+    if ((*ag).diagnosis==1) output_ex.n_exac_by_gold_severity_diagnosed[(*ag).gold-1][(*ag).exac_status-1]+=1*(*ag).eligible;
+    output_ex.n_exac_by_ctime_severity_female[(int)floor((*ag).time_at_creation+(*ag).local_time)][(*ag).exac_status-1]+=(*ag).sex*(*ag).eligible;
+    output_ex.n_exac_by_ctime_GOLD[(int)floor((*ag).time_at_creation+(*ag).local_time)][(*ag).gold-1]+=1*(*ag).eligible;
+    if ((*ag).exac_status > 2) output_ex.n_severep_exac_by_ctime_age[(int)floor((*ag).time_at_creation+(*ag).local_time)][(int)(floor((*ag).age_at_creation+(*ag).local_time))]+=1*(*ag).eligible;
+    if ((*ag).diagnosis==0 && (*ag).gold>0) output_ex.n_exac_by_ctime_severity_undiagnosed[(int)floor((*ag).time_at_creation+(*ag).local_time)][(*ag).exac_status-1]+=1*(*ag).eligible;
+    if ((*ag).diagnosis==1 && (*ag).gold>0) output_ex.n_exac_by_ctime_severity_diagnosed[(int)floor((*ag).time_at_creation+(*ag).local_time)][(*ag).exac_status-1]+=1*(*ag).eligible;
 
   #endif
 
@@ -3540,10 +3534,10 @@ double event_exacerbation_end_tte(agent *ag)
 
 void event_exacerbation_end_process(agent *ag)
 {
-  (*ag).cumul_cost+=(input.cost.exac_dcost[(*ag).exac_status-1]/pow(1+input.global_parameters.discount_cost,(*ag).time_at_creation+(*ag).local_time-1));
+  (*ag).cumul_cost+=(input.cost.exac_dcost[(*ag).exac_status-1]/pow(1+input.global_parameters.discount_cost,(*ag).time_at_creation+(*ag).local_time-1))*(*ag).eligible;
   output_ex.annual_cost_ctime[(int)floor((*ag).time_at_creation+(*ag).local_time)]+=(*ag).cumul_cost-(*ag).cumul_cost_prev_yr;
-  (*ag).cumul_cost_prev_yr=(*ag).cumul_cost;
-  (*ag).cumul_qaly+=(input.utility.exac_dutil[(*ag).exac_status-1][(*ag).gold-1]/pow(1+input.global_parameters.discount_qaly,(*ag).time_at_creation+(*ag).local_time-1));
+  (*ag).cumul_cost_prev_yr=(*ag).cumul_cost*(*ag).eligible;
+  (*ag).cumul_qaly+=(input.utility.exac_dutil[(*ag).exac_status-1][(*ag).gold-1]/pow(1+input.global_parameters.discount_qaly,(*ag).time_at_creation+(*ag).local_time-1))*(*ag).eligible;
   (*ag).exac_status=0;
 }
 
@@ -3603,9 +3597,9 @@ void event_exacerbation_death_process(agent *ag)
 {
   (*ag).alive=false;
 #if (OUTPUT_EX & OUTPUT_EX_EXACERBATION)>0
-  output_ex.n_exac_death_by_ctime_age[(int)floor((*ag).time_at_creation+(*ag).local_time)][(int)(floor((*ag).age_at_creation+(*ag).local_time))]+=1;
-  output_ex.n_exac_death_by_ctime_severity[(int)floor((*ag).time_at_creation+(*ag).local_time)][(*ag).exac_status-1]+=1;
-  output_ex.n_exac_death_by_age_sex[(int)(floor((*ag).age_at_creation+(*ag).local_time))][(*ag).sex]+=1;
+  output_ex.n_exac_death_by_ctime_age[(int)floor((*ag).time_at_creation+(*ag).local_time)][(int)(floor((*ag).age_at_creation+(*ag).local_time))]+=1*(*ag).eligible;
+  output_ex.n_exac_death_by_ctime_severity[(int)floor((*ag).time_at_creation+(*ag).local_time)][(*ag).exac_status-1]+=1*(*ag).eligible;
+  output_ex.n_exac_death_by_age_sex[(int)(floor((*ag).age_at_creation+(*ag).local_time))][(*ag).sex]+=1*(*ag).eligible;
 
 #endif
   //Rprintf("Death by chocolate!\n");

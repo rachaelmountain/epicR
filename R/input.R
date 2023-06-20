@@ -673,7 +673,7 @@ get_input <- function(age0 = 40,
 
 
   input_help$utility$pneumonia_dutil <- "QALY reduction for 6 week pneumonia event assumed to result in hospitalisation with nmo complications."
-  input$utility$pneumonia_dutil <- 0.02
+  input$utility$pneumonia_dutil <- -0.02
   input_ref$utility$pneumonia_dutil <- "(doi:10.1001/archinte.1996.00440130115012)"
 
 
