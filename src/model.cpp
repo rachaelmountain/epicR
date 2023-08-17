@@ -750,6 +750,7 @@ struct input
     double medication_adherence;
     double triple_therapy_early_initiation;
     double triple_therapy_early_initiation_criteria[2];
+    double triple_therapy_risk_ratio;
     double ln_h_start_betas_by_class[N_MED_CLASS][3+N_MED_CLASS];
     double ln_h_stop_betas_by_class[N_MED_CLASS][3+N_MED_CLASS];
     double ln_rr_exac_by_class[N_MED_CLASS];
@@ -937,6 +938,7 @@ List Cget_inputs()
     Rcpp::Named("medication_adherence")=input.medication.medication_adherence,
     Rcpp::Named("triple_therapy_early_initiation")=input.medication.triple_therapy_early_initiation,
     Rcpp::Named("triple_therapy_early_initiation_criteria")=AS_VECTOR_DOUBLE(input.medication.triple_therapy_early_initiation_criteria),
+    Rcpp::Named("triple_therapy_risk_ratio")=input.medication.triple_therapy_risk_ratio,
     Rcpp::Named("ln_h_start_betas_by_class")=AS_MATRIX_DOUBLE(input.medication.ln_h_start_betas_by_class),
     Rcpp::Named("ln_h_stop_betas_by_class")=AS_MATRIX_DOUBLE(input.medication.ln_h_stop_betas_by_class),
     Rcpp::Named("ln_rr_exac_by_class")=AS_VECTOR_DOUBLE(input.medication.ln_rr_exac_by_class)
@@ -1066,6 +1068,7 @@ int Cset_input_var(std::string name, NumericVector value)
   if(name=="medication$medication_adherence") {input.medication.medication_adherence=value[0]; return(0);};
   if(name=="medication$triple_therapy_early_initiation") {input.medication.triple_therapy_early_initiation=value[0]; return(0);};
   if(name=="medication$triple_therapy_early_initiation_criteria") READ_R_VECTOR(value,input.medication.triple_therapy_early_initiation_criteria);
+  if(name=="medication$triple_therapy_risk_ratio") {input.medication.triple_therapy_risk_ratio=value[0]; return(0);};
   if(name=="medication$ln_h_start_betas_by_class") READ_R_MATRIX(value,input.medication.ln_h_start_betas_by_class);
   if(name=="medication$ln_h_stop_betas_by_class") READ_R_MATRIX(value,input.medication.ln_h_stop_betas_by_class);
   if(name=="medication$ln_rr_exac_by_class") READ_R_VECTOR(value,input.medication.ln_rr_exac_by_class);

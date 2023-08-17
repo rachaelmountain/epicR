@@ -531,6 +531,13 @@ get_input <- function(age0 = 40,
   input$medication$medication_adherence <- 0.7
   input_ref$medication$medication_adherence <- ""
 
+
+  # earlier initiation of triple therapy
+  input$medication$triple_therapy_early_initiation <- 0
+  input$medication$triple_therapy_early_initiation_criteria <- c(GOLD_min=1,dyspnea=0)
+  input$medication$triple_therapy_risk_ratio <- 0.56
+
+
   # medication log-hazard regression matrix for rate reduction in exacerbations
   input_help$medication$medication_ln_hr_exac <- "Rate reduction in exacerbations due to treatment"
   input$medication$medication_ln_hr_exac<-c(input$medication$medication_ln_hr_exac<-c(None=0,
@@ -547,8 +554,8 @@ get_input <- function(age0 = 40,
                                             ICS_LABA_SABA=log((1-0.25)^input$medication$medication_adherence),
                                             ICS_LAMA=log((1-0.25)^input$medication$medication_adherence),
                                             ICS_LAMA_SABA=log((1-0.25)^input$medication$medication_adherence),
-                                            ICS_LAMA_LABA=log((1-0.44)^input$medication$medication_adherence),
-                                            ICS_LAMA_LABA_SABA=log((1-0.44)^input$medication$medication_adherence)))
+                                            ICS_LAMA_LABA=log((1-input$medication$triple_therapy_risk_ratio)^input$medication$medication_adherence),
+                                            ICS_LAMA_LABA_SABA=log((1-input$medication$triple_therapy_risk_ratio)^input$medication$medication_adherence)))
   input_ref$medication$medication_ln_hr_exac <- "ICS/LABA: Annual Rate Ratio of Comibation Therapy (Salmeterol and Fluticasone Propionate) vs. Placebo from TORCH (doi: 10.1056/NEJMoa063070),
                                                  ICS: Annual Rate Ratio between Fluticasone vs. Placebo from TRISTAN Trial (doi:10.1016/S0140-6736(03)12459-2),
                                                  LABA: Annual Rate Ratio between Salmeterol vs. Placebo from TRISTAN Trial (doi:10.1016/S0140-6736(03)12459-2),
@@ -572,10 +579,6 @@ get_input <- function(age0 = 40,
                                         ICS_LAMA_SABA=0, ICS_LAMA_LABA=0.0367, ICS_LAMA_LABA_SABA=0)
   input_ref$medication$medication_utility <- "Lambe et al. Thorax 2019"
 
-
-  # earlier initiation of triple therapy
-  input$medication$triple_therapy_early_initiation <- 0
-  input$medication$triple_therapy_early_initiation_criteria <- c(GOLD_min=1,dyspnea=0)
 
 
 
