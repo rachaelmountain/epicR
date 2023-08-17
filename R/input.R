@@ -554,8 +554,8 @@ get_input <- function(age0 = 40,
                                             ICS_LABA_SABA=log((1-0.25)^input$medication$medication_adherence),
                                             ICS_LAMA=log((1-0.25)^input$medication$medication_adherence),
                                             ICS_LAMA_SABA=log((1-0.25)^input$medication$medication_adherence),
-                                            ICS_LAMA_LABA=log((1-input$medication$triple_therapy_risk_ratio)^input$medication$medication_adherence),
-                                            ICS_LAMA_LABA_SABA=log((1-input$medication$triple_therapy_risk_ratio)^input$medication$medication_adherence)))
+                                            ICS_LAMA_LABA=log((input$medication$triple_therapy_risk_ratio)^input$medication$medication_adherence),
+                                            ICS_LAMA_LABA_SABA=log((input$medication$triple_therapy_risk_ratio)^input$medication$medication_adherence)))
   input_ref$medication$medication_ln_hr_exac <- "ICS/LABA: Annual Rate Ratio of Comibation Therapy (Salmeterol and Fluticasone Propionate) vs. Placebo from TORCH (doi: 10.1056/NEJMoa063070),
                                                  ICS: Annual Rate Ratio between Fluticasone vs. Placebo from TRISTAN Trial (doi:10.1016/S0140-6736(03)12459-2),
                                                  LABA: Annual Rate Ratio between Salmeterol vs. Placebo from TRISTAN Trial (doi:10.1016/S0140-6736(03)12459-2),
