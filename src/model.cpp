@@ -694,6 +694,7 @@ struct input
     double case_detection_start_end_yrs[2];
     int years_btw_case_detection;
     double min_cd_age;
+    double max_cd_age;
     double min_cd_pack_years;
     int min_cd_symptoms;
     double case_detection_methods[3][4];
@@ -882,6 +883,7 @@ List Cget_inputs()
     Rcpp::Named("case_detection_start_end_yrs")=AS_VECTOR_DOUBLE(input.diagnosis.case_detection_start_end_yrs),
     Rcpp::Named("years_btw_case_detection")=input.diagnosis.years_btw_case_detection,
     Rcpp::Named("min_cd_age")=input.diagnosis.min_cd_age,
+    Rcpp::Named("max_cd_age")=input.diagnosis.max_cd_age,
     Rcpp::Named("min_cd_pack_years")=input.diagnosis.min_cd_pack_years,
     Rcpp::Named("min_cd_symptoms")=input.diagnosis.min_cd_symptoms,
     Rcpp::Named("case_detection_methods")=AS_MATRIX_DOUBLE(input.diagnosis.case_detection_methods),
@@ -1025,6 +1027,7 @@ int Cset_input_var(std::string name, NumericVector value)
   if(name=="diagnosis$case_detection_start_end_yrs") READ_R_VECTOR(value,input.diagnosis.case_detection_start_end_yrs);
   if(name=="diagnosis$years_btw_case_detection") {input.diagnosis.years_btw_case_detection=value[0]; return(0);};
   if(name=="diagnosis$min_cd_age") {input.diagnosis.min_cd_age=value[0]; return(0);};
+  if(name=="diagnosis$max_cd_age") {input.diagnosis.max_cd_age=value[0]; return(0);};
   if(name=="diagnosis$min_cd_pack_years") {input.diagnosis.min_cd_pack_years=value[0]; return(0);};
   if(name=="diagnosis$min_cd_symptoms") {input.diagnosis.min_cd_symptoms=value[0]; return(0);};
   if(name=="diagnosis$case_detection_methods") READ_R_MATRIX(value,input.diagnosis.case_detection_methods);
@@ -1194,6 +1197,7 @@ struct agent
   double case_detection_start_end_yrs[2];
   int years_btw_case_detection;
   double min_cd_age;
+  double max_cd_age;
   double min_cd_pack_years;
   int min_cd_symptoms;
 
@@ -2063,11 +2067,11 @@ double apply_case_detection(agent *ag)
   double p_detection = 0;
 
   if ((((*ag).age_at_creation+(*ag).local_time) >= input.diagnosis.min_cd_age) &&
+      (((*ag).age_at_creation+(*ag).local_time) <= input.diagnosis.max_cd_age) &&
       ((*ag).pack_years >= input.diagnosis.min_cd_pack_years) &&
       ((*ag).gpvisits!=0) &&
       ((*ag).diagnosis==0) &&
       ((*ag).cough+(*ag).phlegm+(*ag).wheeze+(*ag).dyspnea >= input.diagnosis.min_cd_symptoms)) {
-
 
     if ((*ag).last_case_detection == 0)
         {

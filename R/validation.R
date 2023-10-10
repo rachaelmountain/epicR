@@ -875,6 +875,65 @@ validate_exacerbation <- function(base_agents=1e4, input=NULL) {
         last_GOLD_transition_time_undiagnosed
   }
 
+
+  #----------------------------MALE ------------------------------------
+  #-------------------------------------------------------------------------
+
+  all_events_male          <- subset(all_events, female==0 )
+  exac_events_male         <- subset(all_events_male, event == 5 )
+  exit_events_male         <- subset(all_events_male, event == 14)
+
+  mild_exac_events_male    <- subset(all_events_male, event == 5 & exac_status == 1)
+  mod_exac_events_male    <- subset(all_events_male, event == 5 & exac_status == 2)
+  sev_exac_events_male    <- subset(all_events_male, event == 5 & exac_status == 3)
+  vsev_exac_events_male    <- subset(all_events_male, event == 5 & exac_status == 4)
+
+
+  Follow_up_GOLD_male <- c(0, 0, 0, 0)
+  last_GOLD_transition_time_male <- 0
+  for (i in 2:dim(all_events_male)[1]) {
+    if ((all_events_male[i, "id"] != all_events_male[i - 1, "id"]))
+      last_GOLD_transition_time_male <- 0
+    if ((all_events_male[i, "id"] == all_events_male[i - 1, "id"]) & (all_events_male[i, "gold"] != all_events_male[i - 1, "gold"])) {
+      Follow_up_GOLD_male[all_events_male[i - 1, "gold"]] = Follow_up_GOLD_male[all_events_male[i - 1, "gold"]] + (all_events_male[i - 1, "local_time"]-all_events_male[i - 1, "time_at_diagnosis"]) -
+        last_GOLD_transition_time_male
+      last_GOLD_transition_time_male <- (all_events_male[i - 1, "local_time"]-all_events_male[i - 1, "time_at_diagnosis"])
+    }
+    if (all_events_male[i, "event"] == 14)
+      Follow_up_GOLD_male[all_events_male[i, "gold"]] = Follow_up_GOLD_male[all_events_male[i, "gold"]] + (all_events_male[i, "local_time"]-all_events_male[i, "time_at_diagnosis"]) -
+        last_GOLD_transition_time_male
+  }
+
+
+  #----------------------------FEMALE ------------------------------------
+  #-------------------------------------------------------------------------
+
+  all_events_female          <- subset(all_events, female==1 )
+  exac_events_female         <- subset(all_events_female, event == 5 )
+  exit_events_female         <- subset(all_events_female, event == 14)
+
+  mild_exac_events_female    <- subset(all_events_female, event == 5 & exac_status == 1)
+  mod_exac_events_female    <- subset(all_events_female, event == 5 & exac_status == 2)
+  sev_exac_events_female    <- subset(all_events_female, event == 5 & exac_status == 3)
+  vsev_exac_events_female    <- subset(all_events_female, event == 5 & exac_status == 4)
+
+
+  Follow_up_GOLD_female <- c(0, 0, 0, 0)
+  last_GOLD_transition_time_female <- 0
+  for (i in 2:dim(all_events_female)[1]) {
+    if ((all_events_female[i, "id"] != all_events_female[i - 1, "id"]))
+      last_GOLD_transition_time_female <- 0
+    if ((all_events_female[i, "id"] == all_events_female[i - 1, "id"]) & (all_events_female[i, "gold"] != all_events_female[i - 1, "gold"])) {
+      Follow_up_GOLD_female[all_events_female[i - 1, "gold"]] = Follow_up_GOLD_female[all_events_female[i - 1, "gold"]] + (all_events_female[i - 1, "local_time"]-all_events_female[i - 1, "time_at_diagnosis"]) -
+        last_GOLD_transition_time_female
+      last_GOLD_transition_time_female <- (all_events_female[i - 1, "local_time"]-all_events_female[i - 1, "time_at_diagnosis"])
+    }
+    if (all_events_female[i, "event"] == 14)
+      Follow_up_GOLD_female[all_events_female[i, "gold"]] = Follow_up_GOLD_female[all_events_female[i, "gold"]] + (all_events_female[i, "local_time"]-all_events_female[i, "time_at_diagnosis"]) -
+        last_GOLD_transition_time_female
+  }
+
+
   terminate_session()
 
   #----------------------------All ------------------------------------
@@ -901,11 +960,11 @@ validate_exacerbation <- function(base_agents=1e4, input=NULL) {
   # CanCOLD only available for GOLD 1 and 2. See doi: 10.1164/rccm.201509-1795OC
 
   Follow_up_GOLD_all_2level <- c(Follow_up_GOLD[1], Follow_up_GOLD[2]) # Because CanCOLD is mostly GOLD2, here we compare EPIC's GOLD2 only instead of GOLD2+
-#  Follow_up_GOLD_all_2level <- c(Follow_up_GOLD[1], sum(Follow_up_GOLD[2:4]))
+  #  Follow_up_GOLD_all_2level <- c(Follow_up_GOLD[1], sum(Follow_up_GOLD[2:4]))
   GOLD_counts_all       <- as.data.frame(table(exac_events[, "gold"]))[, 2]
-  GOLD_counts_all       <- c(GOLD_counts_all[1], sum(GOLD_counts_all[2:4]))
+  GOLD_counts_all       <- c(GOLD_counts_all[1], sum(GOLD_counts_all[2]))
 
-  Exac_per_GOLD[1:3, 1] <- c("total", "gold1", "gold2+")
+  Exac_per_GOLD[1:3, 1] <- c("total", "gold1", "gold2")
   Exac_per_GOLD[1:3, 2] <- c(total_rate,
                              round(x=GOLD_counts_all/Follow_up_GOLD_all_2level,
                                    digit = 2))
@@ -916,7 +975,7 @@ validate_exacerbation <- function(base_agents=1e4, input=NULL) {
   plot <-
     ggplot(dfm, aes(x = GOLD, y = as.numeric(value))) +
     scale_y_continuous(breaks = seq(0, 3, by = 0.5)) +
-    theme_tufte(base_size=14, ticks=F)  +
+    #theme_tufte(base_size=14, ticks=F)  +
     geom_bar(aes(fill = variable), stat = "identity", position = "dodge") +
     ylab ("Rate") +
     labs(caption = "Total rate of exacerbations per year for all patients")
@@ -1018,10 +1077,10 @@ validate_exacerbation <- function(base_agents=1e4, input=NULL) {
   total_rate_undiagnosed <- round(nrow(exac_events_undiagnosed)/sum(Follow_up_GOLD_undiagnosed), 2)
   Exac_per_GOLD_undiagnosed <- matrix (NA, nrow = 3, ncol = 3)
   colnames(Exac_per_GOLD_undiagnosed) <- c("GOLD", "EPIC", "CanCOLD")
-  Exac_per_GOLD_undiagnosed[1:3, 1] <- c("total", "gold1", "gold2+")
+  Exac_per_GOLD_undiagnosed[1:3, 1] <- c("total", "gold1", "gold2")
 
   Follow_up_GOLD_undiagnosed_2level <- c(Follow_up_GOLD_undiagnosed[1],
-                                         Follow_up_GOLD_undiagnosed[2]) #Because CANCold is mostly GOLD2, we comprare to GOLD2 EPIC
+                                         Follow_up_GOLD_undiagnosed[2]) #Because CANCold is mostly GOLD2, we comparre to GOLD2 EPIC
   #Follow_up_GOLD_undiagnosed_2level <- c(Follow_up_GOLD_undiagnosed[1], sum(Follow_up_GOLD_undiagnosed[2:4]))
   GOLD_counts_undiagnosed   <- as.data.frame(table(exac_events_undiagnosed[, "gold"]))[, 2]
   GOLD_counts_undiagnosed   <- c(GOLD_counts_undiagnosed[1],
@@ -1029,13 +1088,13 @@ validate_exacerbation <- function(base_agents=1e4, input=NULL) {
 
 
   Exac_per_GOLD_undiagnosed[1:3, 2] <- c(total_rate_undiagnosed,
-    round(x=GOLD_counts_undiagnosed/Follow_up_GOLD_undiagnosed_2level, digit = 2))
+                                         round(x=GOLD_counts_undiagnosed/Follow_up_GOLD_undiagnosed_2level, digit = 2))
   Exac_per_GOLD_undiagnosed[1:3, 3] <- c(0.30, 0.24, 0.40)
 
   df <- as.data.frame(Exac_per_GOLD_undiagnosed)
   dfm <- melt(df[,c("GOLD", "EPIC", "CanCOLD")],id.vars = 1)
   plot <-
-   ggplot(dfm, aes(x = GOLD, y = as.numeric(value))) +
+    ggplot(dfm, aes(x = GOLD, y = as.numeric(value))) +
     scale_y_continuous(breaks = seq(0, 3, by = 0.5)) +
     theme_tufte(base_size=14, ticks=F)  +
     geom_bar(aes(fill = variable), stat = "identity", position = "dodge") +
@@ -1043,8 +1102,51 @@ validate_exacerbation <- function(base_agents=1e4, input=NULL) {
     labs(caption = "Total rate of exacerbations per year for undiagnosed patients")
   print(plot)
 
+
   message("Total rate of exacerbation in undiagnosed patients (0.30 per year in CanCOLD): ",
           total_rate_undiagnosed)
+
+
+
+
+
+  #---------------------- SEX - RATE BY GOLD GRADE ----------------------------
+  #----------------------------------------------------------------------------
+  Exac_per_GOLD_sex <- matrix (NA, nrow = 5, ncol = 3)
+  colnames(Exac_per_GOLD_sex) <- c("GOLD", "Male", "Female")
+
+  total_rate_male <- round(nrow(exac_events_male)/sum(Follow_up_GOLD_male), 2)
+  GOLD_counts_male <- as.data.frame(table(exac_events_male[, "gold"]))[, 2]
+
+  total_rate_female <- round(nrow(exac_events_female)/sum(Follow_up_GOLD_female), 2)
+  GOLD_counts_female <- as.data.frame(table(exac_events_female[, "gold"]))[, 2]
+
+  Exac_per_GOLD_sex[1:5, 1] <- c("total", "gold1", "gold2", "gold3", "gold4")
+  Exac_per_GOLD_sex[1:5, 2] <- c(total_rate_male,
+                                 round(x=GOLD_counts_male/Follow_up_GOLD_male,
+                                       digit = 2))
+  Exac_per_GOLD_sex[1:5, 3] <- c(total_rate_female,
+                                 round(x=GOLD_counts_female/Follow_up_GOLD_female,
+                                       digit = 2))
+
+  df <- as.data.frame(Exac_per_GOLD_sex)
+  dfm <- melt(df[,c("GOLD", "Male", "Female")],id.vars = 1)
+  plot <-
+    ggplot(dfm, aes(x = GOLD, y = as.numeric(value))) +
+    #scale_y_continuous(breaks = seq(0, 3, by = 0.5)) +
+    #theme_tufte(base_size=14, ticks=F)  +
+    geom_bar(aes(fill = variable), stat = "identity", position = "dodge") +
+    ylab ("Rate") +
+    labs(caption = "Total rate of exacerbations per year for all patients by sex")
+
+  print(plot)
+
+
+  message("Female:male risk ratio for overall exacerbation rate (0.88 in ACCEPT): ",
+          round(total_rate_female/total_rate_male,2))
+  message("Female:male risk ratio for severe/very severe exacerbation rate (1.00 in ACCEPT): ",
+          round((sum(GOLD_counts_female[3:4])/sum(Follow_up_GOLD_female[3:4]))/
+                  (sum(GOLD_counts_male[3:4])/sum(Follow_up_GOLD_male[3:4])),2))
 
 }
 
