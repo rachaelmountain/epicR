@@ -1145,8 +1145,8 @@ validate_exacerbation <- function(base_agents=1e4, input=NULL) {
   message("Female:male risk ratio for overall exacerbation rate (0.88 in ACCEPT): ",
           round(total_rate_female/total_rate_male,2))
   message("Female:male risk ratio for severe/very severe exacerbation rate (1.00 in ACCEPT): ",
-          round((sum(GOLD_counts_female[3:4])/sum(Follow_up_GOLD_female[3:4]))/
-                  (sum(GOLD_counts_male[3:4])/sum(Follow_up_GOLD_male[3:4])),2))
+          round(((nrow(sev_exac_events_female)+nrow(vsev_exac_events_female))/sum(Follow_up_GOLD_female))/
+                  ((nrow(sev_exac_events_male)+nrow(vsev_exac_events_male))/sum(Follow_up_GOLD_male)),2))
 
 }
 

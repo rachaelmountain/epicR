@@ -315,7 +315,7 @@ get_input <- function(age0 = 40,
   ## Exacerbation;
 
   input_help$exacerbation$ln_rate_betas = "Regression coefficients for the random-effects log-hazard model of exacerbation (of any severity)"
-  input$exacerbation$ln_rate_betas <- t(as.matrix(c(intercept = 1.75, female = -0.7, age = 0.04082 * 0.1, fev1 = -1.5, smoking_status = 0.7,
+  input$exacerbation$ln_rate_betas <- t(as.matrix(c(intercept = 1.7, female = -0.7, age = 0.04082 * 0.1, fev1 = -1.5, smoking_status = 0.7,
                                                     gold1 = 0.4 , gold2 = 0 , gold3 = 0.08 , gold4 = -0.35 , diagnosis_effect = 0)))
   input_ref$exacerbation$ln_rate_betas = "Rates from DOI: 10.2147/COPD.S13826, adjusted to account for diganosis bias. Adjusted on 2018-10-02 to match manuscript. Recalibrated on 2022-11-04, see validate_exacerbations()"
 
@@ -325,8 +325,9 @@ get_input <- function(age0 = 40,
 
 
   input_help$exacerbation$logit_severity_betas = "Regression coefficients for the proportional odds model of exacerbation severity"
-  input$exacerbation$logit_severity_betas = t(as.matrix(c(intercept1 = -2, intercept2 = 2, intercept3 = 5.208, female = -0.1, age = -0.007,
-                                                          fev1 = 0.8, smoking_status = 0.348, pack_years = -0.001, BMI = 0.018)))
+  input$exacerbation$logit_severity_betas = t(as.matrix(c(intercept1 = -3, intercept2 = 1.85, intercept3 = 5.208, female = 0, age = -0.007,
+                                                          fev1 = 0.98, smoking_status = 0.348, pack_years = -0.001, BMI = 0.018)))
+
   input_ref$exacerbation$logit_severity_betas = "Shahzad's regression on MACRO with adjusted intercepts to match severity levels reported by Hoogendoorn et al. Last updated on manuscript submission"
 
 
