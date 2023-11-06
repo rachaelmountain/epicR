@@ -597,7 +597,7 @@ get_input <- function(age0 = 40,
   ## Adverse events;
 
   input_help$adverse$rate_pneumonia <- "Annual rate of pneumonia events for COPD patients"
-  input$adverse$rate_pneumonia <- c(LAMA_LABA=0.0612,ICS_LAMA_LABA=0.0612*1.53)
+  input$adverse$rate_pneumonia <- c(LAMA_LABA=0.0612,ICS_LAMA_LABA=0.0612*(1.53^input$medication$medication_adherence))
   input_ref$adverse$rate_pneumonia <- "LAMA/LABA: Pneumonia events per 1,000 patient years = 61.2 from IMPACT trial (doi:10.1056/NEJMoa1713901),
                                               ICS/LAMA/LABA: rate ratio for triple vs dual therapy from meta-analysis (doi:http://dx.doi.org/10.1136/bmj.k4388)"
 
